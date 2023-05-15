@@ -26,21 +26,32 @@ impl win_Button {
             && y <= self.y + self.h / 2.0
     }
 
-    pub fn show(&self, ctx: Context, g: &mut G2d) {
+    pub fn show(&self, ctx: Context, gfx: &mut G2d, glyphs: &mut Glyphs) {
+        let text_width = self
+            .text
+            .chars()
+            .map(|c| glyphs.character(c).unwrap().h_metrics().advance_width * 1.2)
+            .sum::<f64>();
+        let text_height = glyphs.line_height();
         let rect = rectangle::centered([self.x, self.y, self.w, self.h]);
-        let text = Text::new_color([0.0, 0.0, 0.0, 1.0], 22);
-        let text_width = text.width(self.text.as_str(), &mut Glyphs::new("arial", g.clone(), TextureSettings::new()).unwrap());
-        let text_height = text.line_height() * 1.5; // Margins 
 
-        rectangle([1.0, 1.0, 1.0, 1.0], rect, ctx.transform, g);
-        rectangle([0.0, 0.0, 0.0, 1.0], rect, ctx.transform, g);
-        text.draw(
-            self.text.as_str(),
-            &mut Glyphs::new("arial", g.clone(), TextureSettings::new()).unwrap(),
-            &DrawState::new_alpha(),
-            ctx.trans(self.x, self.y - text_height / 2.0).transform,
-            g,
-        )
-        .unwrap();
+        rectangle([1.0; 4], rect, ctx.transform, gfx);
+        rectangle(
+            [0.0, 0.0, 0.0, 1.0],
+            rect.border(1.0),
+            ctx.transform,
+            gfx,
+        );
+
+        text::Text::new_color([0.0; 4], 18)
+            .draw(
+                &self.text,
+                glyphs,
+                &draw_state::DrawState::new_alpha(),
+                ctx.trans(self.x - text_width / 2.0, self.y + text_height / 2.0)
+                    .transform,
+                gfx,
+            )
+            .unwrap();
     }
 }
