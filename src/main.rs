@@ -14,6 +14,8 @@ use rand::Rng;
 
 use std::collections::LinkedList;
 use std::iter::FromIterator;
+use std::thread;
+use std::time::Duration;
 
 //button -button.rs
 //mod button;
@@ -200,76 +202,67 @@ impl Food {
     }
 }
 
-fn main() {
-    // Change this to OpenGL::V2_1 if this fails.
-    let opengl = OpenGL::V3_2;
-
-    // const COLS: u32 = 30;
-    // const ROWS: u32 = 20;
-    
-    // let WIDTH = 1280;
-    // let HEIGHT = 720;
-    
-    // let SQUARE_WIDTH = (WIDTH / COLS).min(HEIGHT / ROWS);
-    
-    // let WIDTH = COLS * SQUARE_WIDTH;
-    // let HEIGHT = ROWS * SQUARE_WIDTH;
-
+fn start_game(opengl: OpenGL) {
     const SQUARE_WIDTH: u32 = 20;
-
     let WIDTH = 1280;
     let HEIGHT = 720;
-    
     let COLS = (WIDTH as f64 / SQUARE_WIDTH as f64).floor() as u32;
     let ROWS = (HEIGHT as f64 / SQUARE_WIDTH as f64).floor() as u32;
-    
-    let WIDTH = COLS * SQUARE_WIDTH;
-    let HEIGHT = ROWS * SQUARE_WIDTH;
 
-    let mut window: GlutinWindow = WindowSettings::new("Snake Game", [1280, 720])
-    .exit_on_esc(true)
-    .build()
-    .unwrap();
+    let mut window: GlutinWindow = WindowSettings::new("Snake Game", [WIDTH, HEIGHT])
+        .graphics_api(opengl)
+        .exit_on_esc(true)
+        .build()
+        .unwrap();
 
-    let mut game = Game {
-        gl: GlGraphics::new(opengl),
-        rows: ROWS,
-        cols: COLS,
-        square_width: SQUARE_WIDTH,
-        just_eaten: false,
-//        food: Food { x: 1, y: 1 },
-        // use rand to generate food
-        food: Food {
-            x: rand::thread_rng().gen_range(0, COLS),
-            y: rand::thread_rng().gen_range(0, ROWS),
-        },
-        
-        score: 0,
-        snake: Snake {
+    loop {
+        let mut game = Game {
             gl: GlGraphics::new(opengl),
-            snake_parts: LinkedList::from_iter((vec![Snake_Piece(COLS / 2, ROWS / 2)]).into_iter()),
-            width: SQUARE_WIDTH,
-            d: Direction::DOWN,
-        },
-    };
+            rows: ROWS,
+            cols: COLS,
+            square_width: SQUARE_WIDTH,
+            just_eaten: false,
+            food: Food {
+                x: rand::thread_rng().gen_range(0, COLS),
+                y: rand::thread_rng().gen_range(0, ROWS),
+            },
+            score: 0,
+            snake: Snake {
+                gl: GlGraphics::new(opengl),
+                snake_parts: LinkedList::from_iter((vec![Snake_Piece(COLS / 2, ROWS / 2)]).into_iter()),
+                width: SQUARE_WIDTH,
+                d: Direction::DOWN,
+            },
+        };
 
-    let mut events = Events::new(EventSettings::new()).ups(10);
-    while let Some(e) = events.next(&mut window) {
-        if let Some(r) = e.render_args() {
-            game.render(&r);
-        }
+        let mut events = Events::new(EventSettings::new()).ups(10);
+        while let Some(e) = events.next(&mut window) {
+            if let Some(r) = e.render_args() {
+                game.render(&r);
+            }
 
-        if let Some(u) = e.update_args() {
-            if !game.update(&u) {
-                break;
+            if let Some(u) = e.update_args() {
+                if !game.update(&u) {
+                    break;
+                }
+            }
+
+            if let Some(k) = e.button_args() {
+                if k.state == ButtonState::Press {
+                    game.pressed(&k.button);
+                }
             }
         }
 
-        if let Some(k) = e.button_args() {
-            if k.state == ButtonState::Press {
-                game.pressed(&k.button);
-            }
-        }
+        println!("Congratulations, your score was: {}", game.score);
+        // Pause for 3 seconds before restarting the game
+        println!("Restarting the game in 3 seconds...");
+        thread::sleep(Duration::from_secs(3));
     }
-    println!("Congratulations, your score was: {}", game.score);
+}
+
+fn main() {
+    let opengl = OpenGL::V3_2;
+
+    start_game(opengl);
 }
