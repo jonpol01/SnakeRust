@@ -15,8 +15,8 @@ use std::collections::LinkedList;
 use std::iter::FromIterator;
 
 //button -button.rs
-mod button;
-use button::win_Button;
+//mod button;
+//use button::win_Button;
 
 pub struct Game {
     gl: GlGraphics,
