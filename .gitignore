@@ -16,3 +16,6 @@ Cargo.lock
 .vscode/
 
 # End of https://www.gitignore.io/api/rust
+Cargo copy.toml_bk
+.gitignore
+.vscode/settings.json
