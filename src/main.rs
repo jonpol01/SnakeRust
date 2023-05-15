@@ -10,6 +10,7 @@ use piston::event_loop::*;
 use piston::input::*;
 use glutin_window::GlutinWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
+use rand::Rng;
 
 use std::collections::LinkedList;
 use std::iter::FromIterator;
@@ -38,7 +39,7 @@ impl Game {
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
 
-        self.gl.draw(args.viewport(), |c, gl| {
+        self.gl.draw(args.viewport(), |_c, gl| {
             graphics::clear(BLACK, gl);
         });
 
@@ -46,7 +47,7 @@ impl Game {
         self.food.render(&mut self.gl, args, self.square_width);
     }
 
-    fn update(&mut self, args: &UpdateArgs) -> bool {
+    fn update(&mut self, _args: &UpdateArgs) -> bool {
         if !self.snake.update(self.just_eaten, self.cols, self.rows) {
             return false;
         }
@@ -203,16 +204,29 @@ fn main() {
     // Change this to OpenGL::V2_1 if this fails.
     let opengl = OpenGL::V3_2;
 
-    const COLS: u32 = 30;
-    const ROWS: u32 = 20;
+    // const COLS: u32 = 30;
+    // const ROWS: u32 = 20;
+    
+    // let WIDTH = 1280;
+    // let HEIGHT = 720;
+    
+    // let SQUARE_WIDTH = (WIDTH / COLS).min(HEIGHT / ROWS);
+    
+    // let WIDTH = COLS * SQUARE_WIDTH;
+    // let HEIGHT = ROWS * SQUARE_WIDTH;
+
     const SQUARE_WIDTH: u32 = 20;
 
+    let WIDTH = 1280;
+    let HEIGHT = 720;
+    
+    let COLS = (WIDTH as f64 / SQUARE_WIDTH as f64).floor() as u32;
+    let ROWS = (HEIGHT as f64 / SQUARE_WIDTH as f64).floor() as u32;
+    
     let WIDTH = COLS * SQUARE_WIDTH;
     let HEIGHT = ROWS * SQUARE_WIDTH;
 
-    let mut window: GlutinWindow = WindowSettings::new("Snake Game", [WIDTH, HEIGHT])
-    //.graphics_api using opengl
-    .graphics_api(opengl)
+    let mut window: GlutinWindow = WindowSettings::new("Snake Game", [1280, 720])
     .exit_on_esc(true)
     .build()
     .unwrap();
@@ -223,7 +237,13 @@ fn main() {
         cols: COLS,
         square_width: SQUARE_WIDTH,
         just_eaten: false,
-        food: Food { x: 1, y: 1 },
+//        food: Food { x: 1, y: 1 },
+        // use rand to generate food
+        food: Food {
+            x: rand::thread_rng().gen_range(0, COLS),
+            y: rand::thread_rng().gen_range(0, ROWS),
+        },
+        
         score: 0,
         snake: Snake {
             gl: GlGraphics::new(opengl),
