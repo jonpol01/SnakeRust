@@ -6,17 +6,14 @@ extern crate piston_window;
 extern crate find_folder;
 
 use piston_window::*;
-
-
 use piston::input::UpdateArgs;
-
 use piston::window::WindowSettings;
-use opengl_graphics::{GlGraphics, OpenGL};
+use opengl_graphics::{GlGraphics, OpenGL, GlyphCache};
 use rand::Rng;
 
 use std::collections::LinkedList;
 use std::iter::FromIterator;
-use std::thread;
+use std::{thread, string};
 use std::time::Duration;
 
 
@@ -36,19 +33,44 @@ impl Game {
         use graphics::*;
     
         const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
-        // const black color
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+        const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
     
         let half_height = args.window_size[1] as f64 / 2.0;
+
+        let board_width = self.square_width * self.cols;
+        let board_height = self.square_width * self.rows;
+        // Define the border rectangle parameters
+        let border_color = WHITE;
+        let border_width = 5.0;
+        let border_padding = 5.0;
     
-        self.gl.draw(args.viewport(), |_c, gl| {
+        // Define the border rectangle
+        let border_rect = [
+            border_padding,
+            border_padding,
+            board_width as f64 + border_width - 2.0 * border_padding,
+            board_height as f64 + border_width - 2.0 * border_padding,
+        ];
+
+        self.gl.draw(args.viewport(), |c, gl| {
             graphics::clear(BLACK, gl);
+            
+            // Draw the border rectangle inside the screen
+            let border = rectangle::Rectangle::new_border(border_color, border_width);
+            border.draw(border_rect, &c.draw_state, c.transform, gl);
+            
+            // Draw the score text
+            let score_text = text::Text::new_color(WHITE, 32);
+            let score_string = format!("Score: {}", self.score);
+            
+
         });
     
         // Only iterate over the snake parts that are in the top half of the screen
         let top_snake_parts: Vec<Snake_Piece> = self.snake.snake_parts
             .iter()
-//            .filter(|p| p.1 < self.rows / 2)
+            //.filter(|p| p.1 < self.rows / 2)
             .filter(|p| p.1 < self.rows / 1)
             .map(|p| Snake_Piece(p.0, p.1))
             .collect();
@@ -56,7 +78,7 @@ impl Game {
         // Render the snake
         for p in &top_snake_parts {
             let x = p.0 * self.square_width;
-            //let y = (p.1 - self.rows / 4) * self.square_width; // screen hight use only half
+            //let y = (p.1 - self.rows / 4) * self.square_width; // screen hight use only
             let y = p.1 * self.square_width;
 
             let square = rectangle::square(x as f64, y as f64, self.square_width as f64);
@@ -234,18 +256,11 @@ fn start_game(opengl: OpenGL) {
     let COLS = (WIDTH as f64 / SQUARE_WIDTH as f64).floor() as u32;
     let ROWS = (HEIGHT as f64 / SQUARE_WIDTH as f64).floor() as u32;
 
-    // let mut window: GlutinWindow = WindowSettings::new("Snake Game", [WIDTH, HEIGHT])
-    //     .graphics_api(opengl)
-    //     .exit_on_esc(true)
-    //     .build()
-    //     .unwrap();
-
     let mut window: PistonWindow = WindowSettings::new(
         "Snake Game",
         [WIDTH, HEIGHT]
     )
     .exit_on_esc(true)
-    //.opengl(OpenGL::V2_1) // Set a different OpenGl version
     .build()
     .unwrap();
 
@@ -279,22 +294,29 @@ fn start_game(opengl: OpenGL) {
         while let Some(e) = events.next(&mut window) {
 
             if let Some(r) = e.render_args() {
-                // Draw text after rendering the game
-                window.draw_2d(&e, |c, g, device| {
-                    let transform = c.transform.trans(10.0, 100.0);
 
-                    clear([0.0, 0.0, 0.0, 1.0], g);
-                    text::Text::new_color([0.0, 1.0, 0.0, 1.0], 32).draw(
-                        "Hello world!",
-                        &mut glyphs,
-                        &c.draw_state,
-                        transform, g
-                    ).unwrap();
-
-                    // Update glyphs before rendering.
-                    glyphs.factory.encoder.flush(device);
-                });
                 game.render(&r);
+                // window.draw_2d(&e, |c, g, device| {
+                //     clear([0.0, 0.0, 0.0, 1.0], g);
+        
+                //     let border_color = [1.0, 1.0, 1.0, 1.0];
+                //     let border_width = 5.0;
+               
+                //     //get the window size from the context
+                //     //let size = context.get_view_size();
+                //     let size = c.viewport.unwrap().draw_size;
+                //     let width = size[0];
+                //     let height = size[1];
+                    
+                //     let rect = rectangle::rectangle_by_corners(0.0, 0.0, width as f64, height as f64);
+        
+                //     //let transform = context.transform;
+                //     let transform = c.transform;
+                    
+        
+                //     rectangle::Rectangle::new_border(border_color, border_width)
+                //         .draw(rect, &c.draw_state, transform, g);
+                // });                
             }
 
             if let Some(u) = e.update_args() {
