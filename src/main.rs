@@ -2,13 +2,15 @@ extern crate glutin_window;
 extern crate graphics;
 extern crate opengl_graphics;
 extern crate piston;
+extern crate piston_window;
+extern crate find_folder;
 
-extern crate rand;
+use piston_window::*;
+
+
+use piston::input::UpdateArgs;
 
 use piston::window::WindowSettings;
-use piston::event_loop::*;
-use piston::input::*;
-use glutin_window::GlutinWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use rand::Rng;
 
@@ -17,9 +19,6 @@ use std::iter::FromIterator;
 use std::thread;
 use std::time::Duration;
 
-//button -button.rs
-//mod button;
-//use button::win_Button;
 
 pub struct Game {
     gl: GlGraphics,
@@ -34,19 +33,43 @@ pub struct Game {
 
 impl Game {
     fn render(&mut self, args: &RenderArgs) {
-        use graphics;
-
+        use graphics::*;
+    
         const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
         // const black color
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
-
-
+    
+        let half_height = args.window_size[1] as f64 / 2.0;
+    
         self.gl.draw(args.viewport(), |_c, gl| {
             graphics::clear(BLACK, gl);
         });
+    
+        // Only iterate over the snake parts that are in the top half of the screen
+        let top_snake_parts: Vec<Snake_Piece> = self.snake.snake_parts
+            .iter()
+//            .filter(|p| p.1 < self.rows / 2)
+            .filter(|p| p.1 < self.rows / 1)
+            .map(|p| Snake_Piece(p.0, p.1))
+            .collect();
+    
+        // Render the snake
+        for p in &top_snake_parts {
+            let x = p.0 * self.square_width;
+            //let y = (p.1 - self.rows / 4) * self.square_width; // screen hight use only half
+            let y = p.1 * self.square_width;
 
-        self.snake.render(args);
-        self.food.render(&mut self.gl, args, self.square_width);
+            let square = rectangle::square(x as f64, y as f64, self.square_width as f64);
+            self.gl.draw(args.viewport(), |c, gl| {
+                let transform = c.transform;
+                rectangle(GREEN, square, transform, gl);
+            });
+        }
+    
+        // Render the food
+        if self.food.y < self.rows / 1 { // devide by 2
+            self.food.render(&mut self.gl, args, self.square_width);
+        }
     }
 
     fn update(&mut self, _args: &UpdateArgs) -> bool {
@@ -202,6 +225,8 @@ impl Food {
     }
 }
 
+
+
 fn start_game(opengl: OpenGL) {
     const SQUARE_WIDTH: u32 = 20;
     let WIDTH = 1280;
@@ -209,11 +234,26 @@ fn start_game(opengl: OpenGL) {
     let COLS = (WIDTH as f64 / SQUARE_WIDTH as f64).floor() as u32;
     let ROWS = (HEIGHT as f64 / SQUARE_WIDTH as f64).floor() as u32;
 
-    let mut window: GlutinWindow = WindowSettings::new("Snake Game", [WIDTH, HEIGHT])
-        .graphics_api(opengl)
-        .exit_on_esc(true)
-        .build()
-        .unwrap();
+    // let mut window: GlutinWindow = WindowSettings::new("Snake Game", [WIDTH, HEIGHT])
+    //     .graphics_api(opengl)
+    //     .exit_on_esc(true)
+    //     .build()
+    //     .unwrap();
+
+    let mut window: PistonWindow = WindowSettings::new(
+        "Snake Game",
+        [WIDTH, HEIGHT]
+    )
+    .exit_on_esc(true)
+    //.opengl(OpenGL::V2_1) // Set a different OpenGl version
+    .build()
+    .unwrap();
+
+    let assets = find_folder::Search::ParentsThenKids(3, 3)
+    .for_folder("dejavu-sans-mono").unwrap();
+    println!("{:?}", assets);
+    let mut glyphs = window.load_font(assets.join("DejavuSansMono.ttf")).unwrap();
+
 
     loop {
         let mut game = Game {
@@ -237,7 +277,23 @@ fn start_game(opengl: OpenGL) {
 
         let mut events = Events::new(EventSettings::new()).ups(10);
         while let Some(e) = events.next(&mut window) {
+
             if let Some(r) = e.render_args() {
+                // Draw text after rendering the game
+                window.draw_2d(&e, |c, g, device| {
+                    let transform = c.transform.trans(10.0, 100.0);
+
+                    clear([0.0, 0.0, 0.0, 1.0], g);
+                    text::Text::new_color([0.0, 1.0, 0.0, 1.0], 32).draw(
+                        "Hello world!",
+                        &mut glyphs,
+                        &c.draw_state,
+                        transform, g
+                    ).unwrap();
+
+                    // Update glyphs before rendering.
+                    glyphs.factory.encoder.flush(device);
+                });
                 game.render(&r);
             }
 
@@ -253,6 +309,8 @@ fn start_game(opengl: OpenGL) {
                 }
             }
         }
+
+
 
         println!("Congratulations, your score was: {}", game.score);
         // Pause for 3 seconds before restarting the game
