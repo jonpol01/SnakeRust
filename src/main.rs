@@ -59,14 +59,8 @@ impl Game {
             // Draw the border rectangle inside the screen
             let border = rectangle::Rectangle::new_border(border_color, border_width);
             border.draw(border_rect, &c.draw_state, c.transform, gl);
-            
-            // Draw the score text
-            let score_text = text::Text::new_color(WHITE, 32);
-            let score_string = format!("Score: {}", self.score);
-            
-
         });
-    
+
         // Only iterate over the snake parts that are in the top half of the screen
         let top_snake_parts: Vec<Snake_Piece> = self.snake.snake_parts
             .iter()
@@ -296,27 +290,23 @@ fn start_game(opengl: OpenGL) {
             if let Some(r) = e.render_args() {
 
                 game.render(&r);
-                // window.draw_2d(&e, |c, g, device| {
-                //     clear([0.0, 0.0, 0.0, 1.0], g);
-        
-                //     let border_color = [1.0, 1.0, 1.0, 1.0];
-                //     let border_width = 5.0;
-               
-                //     //get the window size from the context
-                //     //let size = context.get_view_size();
-                //     let size = c.viewport.unwrap().draw_size;
-                //     let width = size[0];
-                //     let height = size[1];
-                    
-                //     let rect = rectangle::rectangle_by_corners(0.0, 0.0, width as f64, height as f64);
-        
-                //     //let transform = context.transform;
-                //     let transform = c.transform;
-                    
-        
-                //     rectangle::Rectangle::new_border(border_color, border_width)
-                //         .draw(rect, &c.draw_state, transform, g);
-                // });                
+
+                // let score = game.score.to_string();
+                // let transform = r.draw_size.to_matrix();
+                // let text_color = [1.0, 1.0, 1.0, 1.0];
+                // let text_size = 32;
+                // let text = graphics::Text::new_color(text_color, text_size);
+                // graphics::text::Text::new_color(text_color, text_size)
+                //     .draw(
+                //         &score,
+                //         &mut glyphs,
+                //         &c.draw_state,
+                //         transform,
+                //         g
+                //     ).unwrap();
+
+                
+
             }
 
             if let Some(u) = e.update_args() {
@@ -331,8 +321,6 @@ fn start_game(opengl: OpenGL) {
                 }
             }
         }
-
-
 
         println!("Congratulations, your score was: {}", game.score);
         // Pause for 3 seconds before restarting the game
