@@ -3,9 +3,7 @@ use bevy::{prelude::*};
 const SNAKE_HEAD_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 
 #[derive(Component)]
-struct SnakeHead {
-    direction: Direction,
-}
+struct SnakeHead;
 
 fn setup_camera(mut commands: Commands) {
     // commands spawn bundle orthographic camera bundle new 2d
@@ -36,18 +34,10 @@ fn spawn_snake(mut commands: Commands) {
 
 fn snake_movement(mut head_positions: Query<(&SnakeHead, &mut Transform)>) {
 
-    // move the snake head
-//    for (_head, transform) in &mut head_positions{
-    for (_snakehead, transform) in &mut head_positions{
+    for (_head, mut transform) in &mut head_positions {
         info!("Head: {:?}", transform.translation);
-        //let forward = transform.forward();
-        //transform.translation += forward + 2.0;
-        //transform.translation.x += 2.;
+        transform.translation.y += 2.;
     }
-
-    // for (_head, mut transform) in &mut head_positions {
-    //     transform.translation.y += 2.;
-    // }
 }
 
 fn snake_move(
