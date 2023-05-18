@@ -32,14 +32,21 @@ fn spawn_snake(mut commands: Commands) {
     });
 }
 
+fn snake_movement(mut head_positions: Query<(&SnakeHead, &mut Transform)>) {
+    for (_head, mut transform) in head_positions.iter_mut() {
+        transform.translation.x += 2.;
+    }
+}
+
 #[derive(Component)]
 struct SnakeHead;
 
 fn main() {
-    //App::new().add_plugins(DefaultPlugins).run();
     App::new()
     .add_startup_system(setup_camera)
     .add_startup_system(spawn_snake)
+
+    .add_system(snake_movement) // <--
     .add_plugins(DefaultPlugins)
     .run();
 }
