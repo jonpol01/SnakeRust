@@ -2,12 +2,24 @@ use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use rand::prelude::random;
 
+use bevy::sprite::Sprite;
+use bevy::prelude::{Material, SpriteBundle, Color};
+use bevy::asset::Assets;
+use bevy::sprite::collide_aabb::{collide, Collision};
+
+use bevy::{
+    input::mouse::{MouseScrollUnit, MouseWheel},
+    prelude::*,
+    winit::WinitSettings,
+};
+
 const SNAKE_HEAD_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 const FOOD_COLOR: Color = Color::rgb(1.0, 0.0, 1.0);
 const SNAKE_SEGMENT_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
 
-const ARENA_HEIGHT: u32 = 40;
+const ARENA_HEIGHT: u32 = 45;
 const ARENA_WIDTH: u32 = 50;
+
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 struct Position {
@@ -68,25 +80,62 @@ impl Direction {
     }
 }
 
-fn setup_camera(mut commands: Commands) {
+// fn setup_camera(mut commands: Commands) {
+//     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+// }
+fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Text2dBundle {
+        text: Text::with_section(
+            "Score: 0",
+            TextStyle {
+                font: asset_server.load("dejavu-sans-mono/DejaVuSansMono.ttf"),
+                font_size: 40.0,
+                color: Color::WHITE,
+            },
+            TextAlignment {
+                vertical: VerticalAlign::Center,
+                horizontal: HorizontalAlign::Center,
+            },
+        ),
+        transform: Transform::from_translation(Vec3::new(-350.0, 400.0, 0.0)),
+        ..Default::default()
+    });
 }
 
 fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
+
+    let x = (random::<f32>() * ARENA_WIDTH as f32) as i32;
+    let y = (random::<f32>() * ARENA_HEIGHT as f32) as i32;
+    let direction = match random::<u8>() % 4 {
+        0 => Direction::Left,
+        1 => Direction::Up,
+        2 => Direction::Right,
+        _ => Direction::Down,
+    };
+
     *segments = SnakeSegments(vec![
         commands
+            // .spawn_bundle(SpriteBundle {
+            //     sprite: Sprite {
+            //         color: SNAKE_HEAD_COLOR,
+            //         ..default()
+            //     },
+            //     ..default()
+            // })
             .spawn_bundle(SpriteBundle {
                 sprite: Sprite {
                     color: SNAKE_HEAD_COLOR,
                     ..default()
                 },
-                ..default()
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+                ..Default::default()
             })
             .insert(SnakeHead {
-                direction: Direction::Up,
+                direction,
             })
             .insert(SnakeSegment)
-            .insert(Position { x: 3, y: 3 })
+            .insert(Position { x: x, y: y })
             .insert(Size::square(0.8))
             .id(),
         spawn_segment(commands, Position { x: 3, y: 2 }),
@@ -104,7 +153,7 @@ fn spawn_segment(mut commands: Commands, position: Position) -> Entity {
         })
         .insert(SnakeSegment)
         .insert(position)
-        .insert(Size::square(0.65))
+        .insert(Size::square(0.8))
         .id()
 }
 
@@ -226,11 +275,25 @@ fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform)>) {
         );
     }
 }
-
+// fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform), Without<Food>>) {
+//     let window = windows.get_primary().unwrap();
+//     for (sprite_size, mut transform) in q.iter_mut() {
+//         transform.scale = Vec3::new(
+//             sprite_size.width / ARENA_WIDTH as f32 * window.width() as f32,
+//             sprite_size.height / ARENA_HEIGHT as f32 * window.height() as f32,
+//             1.0,
+//         );
+//     }
+// }
 fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Transform)>) {
+    // fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {
+    //     let tile_size = bound_window / bound_game; 
+    //     pos / bound_game * bound_window - (bound_window / 2.0) + (tile_size / 2.0)
+    // }
     fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {
-        let tile_size = bound_window / bound_game;
-        pos / bound_game * bound_window - (bound_window / 2.) + (tile_size / 2.)
+        let tile_size = bound_window / (bound_game / 2.0); // Divide by 2 to use half of the screen
+        // screen width is 1200.. use only have if it and center it
+        pos / bound_game * bound_window - (bound_window / 2.0) + (tile_size / 2.0)        
     }
     let window = windows.get_primary().unwrap();
     for (pos, mut transform) in q.iter_mut() {
@@ -239,7 +302,6 @@ fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Tra
             convert(pos.y as f32, window.height() as f32, ARENA_HEIGHT as f32),
             0.0,
         );
-        // info!("Window size: {:?}, {:?} ", window.width(), window.height());
     }
 }
 

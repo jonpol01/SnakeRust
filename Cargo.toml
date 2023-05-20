@@ -8,5 +8,120 @@ edition = "2021"
 [dependencies]
 #bevy = "0.10.1"
 bevy = "0.7.0"
+bevy_derive = "0.10.1"
+#bevy_sprite = "0.10.1"
+#bevy_transform = "0.10.1"
 rand = "0.8.5"
 #rand = "0.7.3"
+
+
+# UI (User Interface)
+[[example]]
+name = "button"
+path = "examples/ui/button.rs"
+
+[package.metadata.example.button]
+name = "Button"
+description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "window_fallthrough"
+path = "examples/ui/window_fallthrough.rs"
+
+[package.metadata.example.window_fallthrough]
+name = "Window Fallthrough"
+description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
+name = "font_atlas_debug"
+path = "examples/ui/font_atlas_debug.rs"
+
+[package.metadata.example.font_atlas_debug]
+name = "Font Atlas Debug"
+description = "Illustrates how FontAtlases are populated (used to optimize text rendering internally)"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "relative_cursor_position"
+path = "examples/ui/relative_cursor_position.rs"
+
+[package.metadata.example.relative_cursor_position]
+name = "Relative Cursor Position"
+description = "Showcases the RelativeCursorPosition component"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "text"
+path = "examples/ui/text.rs"
+
+[package.metadata.example.text]
+name = "Text"
+description = "Illustrates creating and updating text"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "text_debug"
+path = "examples/ui/text_debug.rs"
+
+[package.metadata.example.text_debug]
+name = "Text Debug"
+description = "An example for debugging text layout"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "text_layout"
+path = "examples/ui/text_layout.rs"
+
+[package.metadata.example.text_layout]
+name = "Text Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
+name = "transparency_ui"
+path = "examples/ui/transparency_ui.rs"
+
+[package.metadata.example.transparency_ui]
+name = "Transparency UI"
+description = "Demonstrates transparency for UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "z_index"
+path = "examples/ui/z_index.rs"
+
+[package.metadata.example.z_index]
+name = "UI Z-Index"
+description = "Demonstrates how to control the relative depth (z-position) of UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui"
+path = "examples/ui/ui.rs"
+
+[package.metadata.example.ui]
+name = "UI"
+description = "Illustrates various features of Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_scaling"
+path = "examples/ui/ui_scaling.rs"
+
+[package.metadata.example.ui_scaling]
+name = "UI Scaling"
+description = "Illustrates how to scale the UI"
+category = "UI (User Interface)"
+wasm = true
