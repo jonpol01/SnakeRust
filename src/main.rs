@@ -339,7 +339,7 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .insert_resource(WindowDescriptor {
-            title: "Snake!".to_string(),
+            title: "Snake-rust".to_string(),
             width: 1200.0,
             height: 900.0,
             ..default()
