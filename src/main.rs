@@ -1,20 +1,18 @@
-use std::ptr::read_unaligned;
 
 use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use rand::prelude::random;
 
 use bevy::sprite::Sprite;
-use bevy::prelude::{Material, SpriteBundle, Color};
-use bevy::asset::Assets;
-use bevy::sprite::collide_aabb::{collide, Collision};
+use bevy::prelude::{SpriteBundle, Color};
 
-const SNAKE_HEAD_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
+//snake head color red
+const SNAKE_COLOR: Color = Color::rgb(1.0, 0.0, 0.0);
+const SNAKE_TAIL_COLOR: Color = Color::rgb(1.0, 0.7, 0.6);
 const FOOD_COLOR: Color = Color::rgb(1.0, 0.0, 1.0);
-const SNAKE_SEGMENT_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
 
-const ARENA_HEIGHT: u32 = 45;
-const ARENA_WIDTH: u32 = 50;
+const ARENA_HEIGHT: u32 = 30; // screen height / arena height
+const ARENA_WIDTH: u32 = 30; // screen width / arena width
 
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
@@ -79,11 +77,30 @@ impl Direction {
     }
 }
 
-fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
+// fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
+//     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+//     commands.spawn_bundle(Text2dBundle {
+//         text: Text::with_section(
+//             "Score: 0",
+//             TextStyle {
+//                 font: asset_server.load("dejavu-sans-mono/DejaVuSansMono.ttf"),
+//                 font_size: 40.0,
+//                 color: Color::WHITE,
+//             },
+//             TextAlignment {
+//                 vertical: VerticalAlign::Center,
+//                 horizontal: HorizontalAlign::Center,
+//             },
+//         ),
+//         transform: Transform::from_translation(Vec3::new(-350.0, 400.0, 0.0)),
+//         ..Default::default()
+//     });
+// }
+fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, mut score: ResMut<u32>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(Text2dBundle {
+    let score_entity = commands.spawn_bundle(Text2dBundle {
         text: Text::with_section(
-            "Score: 0",
+            format!("Score: {}", *score).as_str(), // display the score
             TextStyle {
                 font: asset_server.load("dejavu-sans-mono/DejaVuSansMono.ttf"),
                 font_size: 40.0,
@@ -96,7 +113,8 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
         ),
         transform: Transform::from_translation(Vec3::new(-350.0, 400.0, 0.0)),
         ..Default::default()
-    });
+    }).id();
+    commands.insert_resource(score_entity); // keep a reference to the score entity
 }
 
 fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
@@ -114,7 +132,7 @@ fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
         commands
             .spawn_bundle(SpriteBundle {
                 sprite: Sprite {
-                    color: SNAKE_HEAD_COLOR,
+                    color: SNAKE_COLOR,
                     ..default()
                 },
                 transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
@@ -137,7 +155,7 @@ fn spawn_segment(mut commands: Commands, position: Position) -> Entity {
     commands
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
-                color: SNAKE_SEGMENT_COLOR,
+                color: SNAKE_TAIL_COLOR,
                 ..default()
             },
             ..default()
@@ -233,15 +251,23 @@ fn game_over(
 fn snake_eating(
     mut commands: Commands,
     mut growth_writer: EventWriter<GrowthEvent>,
+    mut score: ResMut<u32>,
     food_positions: Query<(Entity, &Position), With<Food>>,
     head_positions: Query<&Position, With<SnakeHead>>,
+    score_entity: Res<Entity>, // add a reference to the score entity
+    mut query: Query<&mut Text, With<Text>>,
 ) {
     for head_pos in head_positions.iter() {
         for (ent, food_pos) in food_positions.iter() {
             if food_pos == head_pos {
                 commands.entity(ent).despawn();
                 growth_writer.send(GrowthEvent);
-                info!("Eating");
+                *score += 1;
+                info!("Score: {}", *score);
+                // retrieve the score text and update it
+                if let Ok(mut text) = query.get_mut(*score_entity) {
+                    text.sections[0].value = format!("Score: {}", *score);
+                }
             }
         }
     }
@@ -330,6 +356,7 @@ fn main() {
         .add_startup_system(spawn_snake)
         .insert_resource(SnakeSegments::default())
         .insert_resource(LastTailPosition::default())
+        .insert_resource::<u32>(0)
         .add_event::<GrowthEvent>()
         .add_system(snake_movement_input.before(snake_movement))
         .add_event::<GameOverEvent>()
