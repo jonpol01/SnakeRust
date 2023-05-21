@@ -11,8 +11,9 @@ Use arrow keys(←→↑↓) to control the snake's direction. The objective of 
 To play the game, clone the repository:
 
 
-`git clone https://github.com/jonpol01/SnakeRust.git
-cd SnakeRust`
+`git clone https://github.com/jonpol01/SnakeRust.git`
+
+`cd SnakeRust`
 
 Ensure that you have Rust and Cargo installed. Then run the following command to start the game:
 
