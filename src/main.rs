@@ -1,4 +1,3 @@
-
 use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use rand::prelude::random;
@@ -77,25 +76,6 @@ impl Direction {
     }
 }
 
-// fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
-//     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-//     commands.spawn_bundle(Text2dBundle {
-//         text: Text::with_section(
-//             "Score: 0",
-//             TextStyle {
-//                 font: asset_server.load("dejavu-sans-mono/DejaVuSansMono.ttf"),
-//                 font_size: 40.0,
-//                 color: Color::WHITE,
-//             },
-//             TextAlignment {
-//                 vertical: VerticalAlign::Center,
-//                 horizontal: HorizontalAlign::Center,
-//             },
-//         ),
-//         transform: Transform::from_translation(Vec3::new(-350.0, 400.0, 0.0)),
-//         ..Default::default()
-//     });
-// }
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, mut score: ResMut<u32>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     let score_entity = commands.spawn_bundle(Text2dBundle {
@@ -236,6 +216,8 @@ fn snake_movement_input(keyboard_input: Res<Input<KeyCode>>, mut heads: Query<&m
 fn game_over(
     mut commands: Commands,
     mut reader: EventReader<GameOverEvent>,
+    score_entity: Res<Entity>,
+    mut query: Query<&mut Text, With<Text>>,
     segments_res: ResMut<SnakeSegments>,
     food: Query<Entity, With<Food>>,
     segments: Query<Entity, With<SnakeSegment>>,
@@ -243,6 +225,11 @@ fn game_over(
     if reader.iter().next().is_some() {
         for ent in food.iter().chain(segments.iter()) {
             commands.entity(ent).despawn();
+            // retrieve the score text and update it
+            if let Ok(mut text) = query.get_mut(*score_entity) {
+                text.sections[0].value = format!("Score: {}", 0);
+                info!("Game Over! Score: {}", 0);
+            }
         }
         spawn_snake(commands, segments_res);
     }
@@ -252,11 +239,16 @@ fn snake_eating(
     mut commands: Commands,
     mut growth_writer: EventWriter<GrowthEvent>,
     mut score: ResMut<u32>,
+    mut query: Query<&mut Text, With<Text>>,
+    mut reader: EventReader<GameOverEvent>,
     food_positions: Query<(Entity, &Position), With<Food>>,
     head_positions: Query<&Position, With<SnakeHead>>,
     score_entity: Res<Entity>, // add a reference to the score entity
-    mut query: Query<&mut Text, With<Text>>,
 ) {
+    if reader.iter().next().is_some() {
+        *score = 0;
+    }
+
     for head_pos in head_positions.iter() {
         for (ent, food_pos) in food_positions.iter() {
             if food_pos == head_pos {
