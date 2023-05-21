@@ -1,326 +1,359 @@
-extern crate glutin_window;
-extern crate graphics;
-extern crate opengl_graphics;
-extern crate piston;
-extern crate piston_window;
-extern crate find_folder;
+use std::ptr::read_unaligned;
 
-use piston_window::*;
+use bevy::core::FixedTimestep;
+use bevy::prelude::*;
+use rand::prelude::random;
 
+use bevy::sprite::Sprite;
+use bevy::prelude::{Material, SpriteBundle, Color};
+use bevy::asset::Assets;
+use bevy::sprite::collide_aabb::{collide, Collision};
 
-use piston::input::UpdateArgs;
+const SNAKE_HEAD_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
+const FOOD_COLOR: Color = Color::rgb(1.0, 0.0, 1.0);
+const SNAKE_SEGMENT_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
 
-use piston::window::WindowSettings;
-use opengl_graphics::{GlGraphics, OpenGL};
-use rand::Rng;
-
-use std::collections::LinkedList;
-use std::iter::FromIterator;
-use std::thread;
-use std::time::Duration;
+const ARENA_HEIGHT: u32 = 45;
+const ARENA_WIDTH: u32 = 50;
 
 
-pub struct Game {
-    gl: GlGraphics,
-    rows: u32,
-    cols: u32,
-    snake: Snake,
-    just_eaten: bool,
-    square_width: u32,
-    food: Food,
-    score: u32,
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+struct Position {
+    x: i32,
+    y: i32,
 }
 
-impl Game {
-    fn render(&mut self, args: &RenderArgs) {
-        use graphics::*;
-    
-        const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
-        // const black color
-        const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
-    
-        let half_height = args.window_size[1] as f64 / 2.0;
-    
-        self.gl.draw(args.viewport(), |_c, gl| {
-            graphics::clear(BLACK, gl);
-        });
-    
-        // Only iterate over the snake parts that are in the top half of the screen
-        let top_snake_parts: Vec<Snake_Piece> = self.snake.snake_parts
-            .iter()
-//            .filter(|p| p.1 < self.rows / 2)
-            .filter(|p| p.1 < self.rows / 1)
-            .map(|p| Snake_Piece(p.0, p.1))
-            .collect();
-    
-        // Render the snake
-        for p in &top_snake_parts {
-            let x = p.0 * self.square_width;
-            //let y = (p.1 - self.rows / 4) * self.square_width; // screen hight use only half
-            let y = p.1 * self.square_width;
-
-            let square = rectangle::square(x as f64, y as f64, self.square_width as f64);
-            self.gl.draw(args.viewport(), |c, gl| {
-                let transform = c.transform;
-                rectangle(GREEN, square, transform, gl);
-            });
+#[derive(Component)]
+struct Size {
+    width: f32,
+    height: f32,
+}
+impl Size {
+    pub fn square(x: f32) -> Self {
+        Self {
+            width: x,
+            height: x,
         }
-    
-        // Render the food
-        if self.food.y < self.rows / 1 { // devide by 2
-            self.food.render(&mut self.gl, args, self.square_width);
-        }
-    }
-
-    fn update(&mut self, _args: &UpdateArgs) -> bool {
-        if !self.snake.update(self.just_eaten, self.cols, self.rows) {
-            return false;
-        }
-
-        if self.just_eaten {
-            self.score += 1;
-            self.just_eaten = false;
-        }
-
-        self.just_eaten = self.food.update(&self.snake);
-        if self.just_eaten {
-            use rand::Rng;
-            use rand::thread_rng;
-            // try my luck
-            let mut r = thread_rng();
-            loop {
-                let new_x = r.gen_range(0, self.cols);
-                let new_y = r.gen_range(0, self.rows);
-                if !self.snake.is_collide(new_x, new_y) {
-                    self.food = Food { x: new_x, y: new_y };
-                    break;
-                }
-            }
-        }
-
-        true
-    }
-
-    fn pressed(&mut self, btn: &Button) {
-        let last_direction = self.snake.d.clone();
-        self.snake.d = match btn {
-            &Button::Keyboard(Key::Up) if last_direction != Direction::DOWN => Direction::UP,
-            &Button::Keyboard(Key::Down) if last_direction != Direction::UP => Direction::DOWN,
-            &Button::Keyboard(Key::Left) if last_direction != Direction::RIGHT => Direction::LEFT,
-            &Button::Keyboard(Key::Right) if last_direction != Direction::LEFT => Direction::RIGHT,
-            _ => last_direction,
-        };
     }
 }
 
-/// The direction the snake moves in.
-#[derive(Clone, PartialEq)]
+#[derive(Component)]
+struct SnakeHead {
+    direction: Direction,
+}
+
+struct GameOverEvent;
+struct GrowthEvent;
+
+#[derive(Default)]
+struct FoodSpawnEvent;
+
+#[derive(Default)]
+struct LastTailPosition(Option<Position>);
+
+#[derive(Component)]
+struct SnakeSegment;
+
+#[derive(Default, Deref, DerefMut)]
+struct SnakeSegments(Vec<Entity>);
+
+#[derive(Component)]
+struct Food;
+
+#[derive(PartialEq, Copy, Clone)]
 enum Direction {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT,
+    Left,
+    Up,
+    Right,
+    Down,
 }
 
-pub struct Snake {
-    gl: GlGraphics,
-    snake_parts: LinkedList<Snake_Piece>,
-    width: u32,
-    d: Direction,
+impl Direction {
+    fn opposite(self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+        }
+    }
 }
 
-#[derive(Clone)]
-pub struct Snake_Piece(u32, u32);
+fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Text2dBundle {
+        text: Text::with_section(
+            "Score: 0",
+            TextStyle {
+                font: asset_server.load("dejavu-sans-mono/DejaVuSansMono.ttf"),
+                font_size: 40.0,
+                color: Color::WHITE,
+            },
+            TextAlignment {
+                vertical: VerticalAlign::Center,
+                horizontal: HorizontalAlign::Center,
+            },
+        ),
+        transform: Transform::from_translation(Vec3::new(-350.0, 400.0, 0.0)),
+        ..Default::default()
+    });
+}
 
-impl Snake {
-    pub fn render(&mut self, args: &RenderArgs) {
-        use graphics;
+fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
 
-        const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+    let x = (random::<f32>() * ARENA_WIDTH as f32) as i32;
+    let y = (random::<f32>() * ARENA_HEIGHT as f32) as i32;
+    let direction = match random::<u8>() % 4 {
+        0 => Direction::Left,
+        1 => Direction::Up,
+        2 => Direction::Right,
+        _ => Direction::Down,
+    };
 
-        let squares: Vec<graphics::types::Rectangle> = self.snake_parts
-            .iter()
-            .map(|p| Snake_Piece(p.0 * self.width, p.1 * self.width))
-            .map(|p| graphics::rectangle::square(p.0 as f64, p.1 as f64, self.width as f64))
-            .collect();
+    *segments = SnakeSegments(vec![
+        commands
+            .spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    color: SNAKE_HEAD_COLOR,
+                    ..default()
+                },
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+                ..Default::default()
+            })
+            .insert(SnakeHead {
+                direction,
+            })
+            .insert(SnakeSegment)
+            .insert(Position { x: x, y: y })
+            .insert(Size::square(0.8))
+            .id(),
+        //spawn_segment(commands, Position { x: 3, y: 3 }),
+    ]);
 
-        self.gl.draw(args.viewport(), |c, gl| {
-            let transform = c.transform;
+    
+}
 
-            squares
-                .into_iter()
-                .for_each(|square| graphics::rectangle(RED, square, transform, gl));
+fn spawn_segment(mut commands: Commands, position: Position) -> Entity {
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: SNAKE_SEGMENT_COLOR,
+                ..default()
+            },
+            ..default()
         })
-    }
+        .insert(SnakeSegment)
+        .insert(position)
+        .insert(Size::square(0.8))
+        .id()
 
-    /// Move the snake if valid, otherwise returns false.
-    pub fn update(&mut self, just_eaten: bool, cols: u32, rows: u32) -> bool {
-        let mut new_front: Snake_Piece =
-            (*self.snake_parts.front().expect("No front of snake found.")).clone();
-
-        if (self.d == Direction::UP && new_front.1 == 0)
-            || (self.d == Direction::LEFT && new_front.0 == 0)
-            || (self.d == Direction::DOWN && new_front.1 == rows - 1)
-            || (self.d == Direction::RIGHT && new_front.0 == cols - 1)
-        {
-            return false;
-        }
-
-        match self.d {
-            Direction::UP => new_front.1 -= 1,
-            Direction::DOWN => new_front.1 += 1,
-            Direction::LEFT => new_front.0 -= 1,
-            Direction::RIGHT => new_front.0 += 1,
-        }
-
-        if !just_eaten {
-            self.snake_parts.pop_back();
-        }
-
-        // Checks self collision.
-        if self.is_collide(new_front.0, new_front.1) {
-            return false;
-        }
-
-        self.snake_parts.push_front(new_front);
-        true
-    }
-
-    fn is_collide(&self, x: u32, y: u32) -> bool {
-        self.snake_parts.iter().any(|p| x == p.0 && y == p.1)
-    }
 }
 
-pub struct Food {
-    x: u32,
-    y: u32,
-}
-
-impl Food {
-    // Return true if snake ate food this update
-    fn update(&mut self, s: &Snake) -> bool {
-        let front = s.snake_parts.front().unwrap();
-        if front.0 == self.x && front.1 == self.y {
-            true
-        } else {
-            false
-        }
-    }
-
-    fn render(&mut self, gl: &mut GlGraphics, args: &RenderArgs, width: u32) {
-        use graphics;
-
-        const BLACK: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
-
-        let x = self.x * width;
-        let y = self.y * width;
-
-        let square = graphics::rectangle::square(x as f64, y as f64, width as f64);
-
-        gl.draw(args.viewport(), |c, gl| {
-            let transform = c.transform;
-
-            graphics::rectangle(BLACK, square, transform, gl)
-        });
-    }
-}
-
-
-
-fn start_game(opengl: OpenGL) {
-    const SQUARE_WIDTH: u32 = 20;
-    let WIDTH = 1280;
-    let HEIGHT = 720;
-    let COLS = (WIDTH as f64 / SQUARE_WIDTH as f64).floor() as u32;
-    let ROWS = (HEIGHT as f64 / SQUARE_WIDTH as f64).floor() as u32;
-
-    // let mut window: GlutinWindow = WindowSettings::new("Snake Game", [WIDTH, HEIGHT])
-    //     .graphics_api(opengl)
-    //     .exit_on_esc(true)
-    //     .build()
-    //     .unwrap();
-
-    let mut window: PistonWindow = WindowSettings::new(
-        "Snake Game",
-        [WIDTH, HEIGHT]
-    )
-    .exit_on_esc(true)
-    //.opengl(OpenGL::V2_1) // Set a different OpenGl version
-    .build()
-    .unwrap();
-
-    let assets = find_folder::Search::ParentsThenKids(3, 3)
-    .for_folder("dejavu-sans-mono").unwrap();
-    println!("{:?}", assets);
-    let mut glyphs = window.load_font(assets.join("DejavuSansMono.ttf")).unwrap();
-
-
-    loop {
-        let mut game = Game {
-            gl: GlGraphics::new(opengl),
-            rows: ROWS,
-            cols: COLS,
-            square_width: SQUARE_WIDTH,
-            just_eaten: false,
-            food: Food {
-                x: rand::thread_rng().gen_range(0, COLS),
-                y: rand::thread_rng().gen_range(0, ROWS),
-            },
-            score: 0,
-            snake: Snake {
-                gl: GlGraphics::new(opengl),
-                snake_parts: LinkedList::from_iter((vec![Snake_Piece(COLS / 2, ROWS / 2)]).into_iter()),
-                width: SQUARE_WIDTH,
-                d: Direction::DOWN,
-            },
+fn snake_movement(
+    mut last_tail_position: ResMut<LastTailPosition>,
+    mut game_over_writer: EventWriter<GameOverEvent>,
+    segments: ResMut<SnakeSegments>,
+    mut heads: Query<(Entity, &SnakeHead)>,
+    mut positions: Query<&mut Position>,
+) {
+    if let Some((head_entity, head)) = heads.iter_mut().next() {
+        let segment_positions = segments
+            .iter()
+            .map(|e| *positions.get_mut(*e).unwrap())
+            .collect::<Vec<Position>>();
+        let mut head_pos = positions.get_mut(head_entity).unwrap();
+        match &head.direction {
+            Direction::Left => {
+                head_pos.x -= 1;
+            }
+            Direction::Right => {
+                head_pos.x += 1;
+            }
+            Direction::Up => {
+                head_pos.y += 1;
+            }
+            Direction::Down => {
+                head_pos.y -= 1;
+            }
         };
+        if head_pos.x < 0
+            || head_pos.y < 0
+            || head_pos.x as u32 >= ARENA_WIDTH
+            || head_pos.y as u32 >= ARENA_HEIGHT
+        {
+            game_over_writer.send(GameOverEvent);
+        }
+        if segment_positions.contains(&head_pos) {
+            game_over_writer.send(GameOverEvent);
+        }
+        segment_positions
+            .iter()
+            .zip(segments.iter().skip(1))
+            .for_each(|(pos, segment)| {
+                *positions.get_mut(*segment).unwrap() = *pos;
+            });
+        *last_tail_position = LastTailPosition(Some(*segment_positions.last().unwrap()));
+    }
+}
 
-        let mut events = Events::new(EventSettings::new()).ups(10);
-        while let Some(e) = events.next(&mut window) {
+fn snake_movement_input(keyboard_input: Res<Input<KeyCode>>, mut heads: Query<&mut SnakeHead>) {
+    if let Some(mut head) = heads.iter_mut().next() {
+        let dir: Direction = if keyboard_input.pressed(KeyCode::Left) {
+            Direction::Left
+        } else if keyboard_input.pressed(KeyCode::Down) {
+            Direction::Down
+        } else if keyboard_input.pressed(KeyCode::Up) {
+            Direction::Up
+        } else if keyboard_input.pressed(KeyCode::Right) {
+            Direction::Right
+        } else {
+            head.direction
+        };
+        if dir != head.direction.opposite() {
+            head.direction = dir;
+        }
+    }
+}
 
-            if let Some(r) = e.render_args() {
-                // Draw text after rendering the game
-                window.draw_2d(&e, |c, g, device| {
-                    let transform = c.transform.trans(10.0, 100.0);
+fn game_over(
+    mut commands: Commands,
+    mut reader: EventReader<GameOverEvent>,
+    segments_res: ResMut<SnakeSegments>,
+    food: Query<Entity, With<Food>>,
+    segments: Query<Entity, With<SnakeSegment>>,
+) {
+    if reader.iter().next().is_some() {
+        for ent in food.iter().chain(segments.iter()) {
+            commands.entity(ent).despawn();
+        }
+        spawn_snake(commands, segments_res);
+    }
+}
 
-                    clear([0.0, 0.0, 0.0, 1.0], g);
-                    text::Text::new_color([0.0, 1.0, 0.0, 1.0], 32).draw(
-                        "Hello world!",
-                        &mut glyphs,
-                        &c.draw_state,
-                        transform, g
-                    ).unwrap();
-
-                    // Update glyphs before rendering.
-                    glyphs.factory.encoder.flush(device);
-                });
-                game.render(&r);
-            }
-
-            if let Some(u) = e.update_args() {
-                if !game.update(&u) {
-                    break;
-                }
-            }
-
-            if let Some(k) = e.button_args() {
-                if k.state == ButtonState::Press {
-                    game.pressed(&k.button);
-                }
+fn snake_eating(
+    mut commands: Commands,
+    mut growth_writer: EventWriter<GrowthEvent>,
+    food_positions: Query<(Entity, &Position), With<Food>>,
+    head_positions: Query<&Position, With<SnakeHead>>,
+) {
+    for head_pos in head_positions.iter() {
+        for (ent, food_pos) in food_positions.iter() {
+            if food_pos == head_pos {
+                commands.entity(ent).despawn();
+                growth_writer.send(GrowthEvent);
+                info!("Eating");
             }
         }
-
-
-
-        println!("Congratulations, your score was: {}", game.score);
-        // Pause for 3 seconds before restarting the game
-        println!("Restarting the game in 3 seconds...");
-        thread::sleep(Duration::from_secs(3));
     }
+}
+
+fn snake_growth(
+    commands: Commands,
+    last_tail_position: Res<LastTailPosition>,
+    mut segments: ResMut<SnakeSegments>,
+    mut growth_reader: EventReader<GrowthEvent>,
+) {
+    if growth_reader.iter().next().is_some() {
+        segments.push(spawn_segment(commands, last_tail_position.0.unwrap()));
+    }
+}
+
+fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform)>) {
+    let window = windows.get_primary().unwrap();
+    for (sprite_size, mut transform) in q.iter_mut() {
+        transform.scale = Vec3::new(
+            sprite_size.width / ARENA_WIDTH as f32 * window.width() as f32,
+            sprite_size.height / ARENA_HEIGHT as f32 * window.height() as f32,
+            1.0,
+        );
+    }
+}
+
+fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Transform)>) {
+    // fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {
+    //     let tile_size = bound_window / bound_game; 
+    //     pos / bound_game * bound_window - (bound_window / 2.0) + (tile_size / 2.0)
+    // }
+    fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {
+        let tile_size = bound_window / (bound_game / 2.0); // Divide by 2 to use half of the screen
+        // screen width is 1200.. use only have if it and center it
+        pos / bound_game * bound_window - (bound_window / 2.0) + (tile_size / 2.0)        
+    }
+    let window = windows.get_primary().unwrap();
+    for (pos, mut transform) in q.iter_mut() {
+        transform.translation = Vec3::new(
+            convert(pos.x as f32, window.width() as f32, ARENA_WIDTH as f32),
+            convert(pos.y as f32, window.height() as f32, ARENA_HEIGHT as f32),
+            0.0,
+        );
+    }
+}
+
+
+fn food_spawner(
+    mut commands: Commands,
+    mut writer: EventWriter<FoodSpawnEvent>,
+    food: Query<Entity, With<Food>>,
+) {
+    if food.iter().next().is_some() {
+        return;
+    }
+
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: FOOD_COLOR,
+                ..default()
+            },
+            ..default()
+        })
+        .insert(Food)
+        .insert(Position {
+            x: (random::<f32>() * ARENA_WIDTH as f32) as i32,
+            y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
+        })
+        .insert(Size::square(0.8));
+    writer.send(FoodSpawnEvent);
 }
 
 fn main() {
-    let opengl = OpenGL::V3_2;
 
-    start_game(opengl);
+    App::new()
+        .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+        .insert_resource(WindowDescriptor {
+            title: "Snake!".to_string(),
+            width: 1200.0,
+            height: 900.0,
+            ..default()
+        })
+        .add_startup_system(setup_camera)
+        .add_startup_system(spawn_snake)
+        .insert_resource(SnakeSegments::default())
+        .insert_resource(LastTailPosition::default())
+        .add_event::<GrowthEvent>()
+        .add_system(snake_movement_input.before(snake_movement))
+        .add_event::<GameOverEvent>()
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(0.150))
+                .with_system(snake_movement)
+                .with_system(snake_eating.after(snake_movement))
+                .with_system(snake_growth.after(snake_eating)),
+        )
+        .add_system(game_over.after(snake_movement))
+        .add_event::<FoodSpawnEvent>()
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(0.5))
+                .with_system(food_spawner)
+        )
+        .add_system_set_to_stage(
+            CoreStage::PostUpdate,
+            SystemSet::new()
+                .with_system(position_translation)
+                .with_system(size_scaling),
+        )
+        .add_plugins(DefaultPlugins)
+        .run();
+
 }
