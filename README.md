@@ -1,18 +1,40 @@
-# Rust Snake Game
+# Snake Game
 
-This is a simple implementation of the classic Snake game in Rust, using the Piston game engine and the OpenGL graphics backend. The game features a snake that moves around the screen, eating food and growing in length as it does so. The player controls the movement of the snake using the arrow keys, and must avoid running into the walls or the snake's own body. The game ends when the snake collides with the walls or its own body, at which point the player's score is displayed on the screen.
+A simple implementation of the classic Snake game using Rust and the game engine Bevy.
 
-## Installation and Usage
+## How to Play
 
-To play the game, you'll need to have Rust and the Cargo package manager installed on your system. Once you have these tools installed, you can run the game by executing the following command in your terminal:
+Use arrow keys(←→↑↓) to control the snake's direction. The objective of the game is to eat the food (pink squares) to grow longer. The game is over if the snake runs into the wall or runs into its own body.
+
+## Installation
+
+To play the game, clone the repository:
+
+
+`git clone https://github.com/jonpol01/SnakeRust.git
+cd SnakeRust`
+
+Ensure that you have Rust and Cargo installed. Then run the following command to start the game:
+
 
 `cargo run --release`
 
-This will compile the game and start the game loop, displaying the game window on your screen.
+## Game Design
 
-## Gameplay
+The game board is a grid with a fixed size. The snake moves through the grid by moving one square at a time. The game loop ticks at a fixed rate, updating the game state and rendering the game in the window.
 
-Once the game has started, you can control the snake using the arrow keys on your keyboard. The snake will move continuously in the direction that you specify using the arrow keys. The snake will grow in length as it eats food, which will appear randomly on the screen. The game ends when the snake collides with the walls or its own body, at which point the player's score is displayed on the screen.
+The Snake is made up of linked squares that grow longer as it eats food. Food is randomly generated on the board. Collisions occur when the snake's head collides with any part of its body or the walls.
+
+The game has a simple scoring system where each piece of food that is eaten adds to the player's score. The game does not have a win condition, and the snake will continue to grow until it collides.
+
+## Future Improvements
+
+There are many ways to improve the game, including adding power-ups and obstacles, adding different game modes, or introducing multiplayer. There is also room to improve the graphics and audio.
+
+## Acknowledgement
+
+This game was inspired by the classic Snake game.
+
 
 ## Credits
 
