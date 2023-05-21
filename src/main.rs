@@ -7,12 +7,6 @@ use bevy::prelude::{Material, SpriteBundle, Color};
 use bevy::asset::Assets;
 use bevy::sprite::collide_aabb::{collide, Collision};
 
-use bevy::{
-    input::mouse::{MouseScrollUnit, MouseWheel},
-    prelude::*,
-    winit::WinitSettings,
-};
-
 const SNAKE_HEAD_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 const FOOD_COLOR: Color = Color::rgb(1.0, 0.0, 1.0);
 const SNAKE_SEGMENT_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
@@ -48,6 +42,7 @@ struct SnakeHead {
 
 struct GameOverEvent;
 struct GrowthEvent;
+struct FoodSpawnEvent;
 
 #[derive(Default)]
 struct LastTailPosition(Option<Position>);
@@ -80,9 +75,6 @@ impl Direction {
     }
 }
 
-// fn setup_camera(mut commands: Commands) {
-//     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-// }
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(Text2dBundle {
@@ -116,13 +108,6 @@ fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
 
     *segments = SnakeSegments(vec![
         commands
-            // .spawn_bundle(SpriteBundle {
-            //     sprite: Sprite {
-            //         color: SNAKE_HEAD_COLOR,
-            //         ..default()
-            //     },
-            //     ..default()
-            // })
             .spawn_bundle(SpriteBundle {
                 sprite: Sprite {
                     color: SNAKE_HEAD_COLOR,
@@ -138,8 +123,10 @@ fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
             .insert(Position { x: x, y: y })
             .insert(Size::square(0.8))
             .id(),
-        spawn_segment(commands, Position { x: 3, y: 2 }),
+        spawn_segment(commands, Position { x: 3, y: 3 }),
     ]);
+
+    
 }
 
 fn spawn_segment(mut commands: Commands, position: Position) -> Entity {
@@ -155,6 +142,7 @@ fn spawn_segment(mut commands: Commands, position: Position) -> Entity {
         .insert(position)
         .insert(Size::square(0.8))
         .id()
+
 }
 
 fn snake_movement(
@@ -249,6 +237,7 @@ fn snake_eating(
             if food_pos == head_pos {
                 commands.entity(ent).despawn();
                 growth_writer.send(GrowthEvent);
+                info!("Eating");
             }
         }
     }
@@ -275,16 +264,7 @@ fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform)>) {
         );
     }
 }
-// fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform), Without<Food>>) {
-//     let window = windows.get_primary().unwrap();
-//     for (sprite_size, mut transform) in q.iter_mut() {
-//         transform.scale = Vec3::new(
-//             sprite_size.width / ARENA_WIDTH as f32 * window.width() as f32,
-//             sprite_size.height / ARENA_HEIGHT as f32 * window.height() as f32,
-//             1.0,
-//         );
-//     }
-// }
+
 fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Transform)>) {
     // fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {
     //     let tile_size = bound_window / bound_game; 
@@ -323,6 +303,7 @@ fn food_spawner(mut commands: Commands) {
 }
 
 fn main() {
+    use bevy::ecs::schedule::RunOnce;
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .insert_resource(WindowDescriptor {
@@ -346,11 +327,23 @@ fn main() {
                 .with_system(snake_growth.after(snake_eating)),
         )
         .add_system(game_over.after(snake_movement))
+
+        // add system, add food on food eaten
         .add_system_set(
             SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(1.0))
-                .with_system(food_spawner),
+            .with_run_criteria(RunOnce::default())
+            .with_system(food_spawner)
         )
+    
+            
+
+
+        // .add_system_set(
+        //     SystemSet::new()
+        //         // run criteria when food was eaten
+        //         .with_run_criteria(FixedTimestep::step(1.0))
+        //         .with_system(food_spawner),
+        // )
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
             SystemSet::new()
