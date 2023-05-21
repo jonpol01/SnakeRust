@@ -1,3 +1,5 @@
+use std::ptr::read_unaligned;
+
 use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use rand::prelude::random;
@@ -42,6 +44,8 @@ struct SnakeHead {
 
 struct GameOverEvent;
 struct GrowthEvent;
+
+#[derive(Default)]
 struct FoodSpawnEvent;
 
 #[derive(Default)]
@@ -123,7 +127,7 @@ fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
             .insert(Position { x: x, y: y })
             .insert(Size::square(0.8))
             .id(),
-        spawn_segment(commands, Position { x: 3, y: 3 }),
+        //spawn_segment(commands, Position { x: 3, y: 3 }),
     ]);
 
     
@@ -285,7 +289,16 @@ fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Tra
     }
 }
 
-fn food_spawner(mut commands: Commands) {
+
+fn food_spawner(
+    mut commands: Commands,
+    mut writer: EventWriter<FoodSpawnEvent>,
+    food: Query<Entity, With<Food>>,
+) {
+    if food.iter().next().is_some() {
+        return;
+    }
+
     commands
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
@@ -300,10 +313,11 @@ fn food_spawner(mut commands: Commands) {
             y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
         })
         .insert(Size::square(0.8));
+    writer.send(FoodSpawnEvent);
 }
 
 fn main() {
-    use bevy::ecs::schedule::RunOnce;
+
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .insert_resource(WindowDescriptor {
@@ -327,23 +341,12 @@ fn main() {
                 .with_system(snake_growth.after(snake_eating)),
         )
         .add_system(game_over.after(snake_movement))
-
-        // add system, add food on food eaten
+        .add_event::<FoodSpawnEvent>()
         .add_system_set(
             SystemSet::new()
-            .with_run_criteria(RunOnce::default())
-            .with_system(food_spawner)
+                .with_run_criteria(FixedTimestep::step(0.5))
+                .with_system(food_spawner)
         )
-    
-            
-
-
-        // .add_system_set(
-        //     SystemSet::new()
-        //         // run criteria when food was eaten
-        //         .with_run_criteria(FixedTimestep::step(1.0))
-        //         .with_system(food_spawner),
-        // )
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
             SystemSet::new()
@@ -352,4 +355,5 @@ fn main() {
         )
         .add_plugins(DefaultPlugins)
         .run();
+
 }
