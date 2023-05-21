@@ -9,15 +9,17 @@ use bevy::prelude::{SpriteBundle, Color};
 const SNAKE_COLOR: Color = Color::rgb(1.0, 0.0, 0.0);
 const SNAKE_TAIL_COLOR: Color = Color::rgb(1.0, 0.7, 0.6);
 const FOOD_COLOR: Color = Color::rgb(1.0, 0.0, 1.0);
+const SNAKE_SPEED: u32 = 1;
 
+const ARENA_BORDER: u32 = 1;
 const ARENA_HEIGHT: u32 = 30; // screen height / arena height
 const ARENA_WIDTH: u32 = 30; // screen width / arena width
 
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 struct Position {
-    x: i32,
-    y: i32,
+    x: u32,
+    y: u32,
 }
 
 #[derive(Component)]
@@ -99,8 +101,8 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>, mut scor
 
 fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
 
-    let x = (random::<f32>() * ARENA_WIDTH as f32) as i32;
-    let y = (random::<f32>() * ARENA_HEIGHT as f32) as i32;
+    let x = (random::<f32>() * (ARENA_WIDTH - ARENA_BORDER)  as f32) as u32;
+    let y = (random::<f32>() * (ARENA_HEIGHT - ARENA_BORDER) as f32) as u32;
     let direction = match random::<u8>() % 4 {
         0 => Direction::Left,
         1 => Direction::Up,
@@ -154,6 +156,7 @@ fn snake_movement(
     mut heads: Query<(Entity, &SnakeHead)>,
     mut positions: Query<&mut Position>,
 ) {
+
     if let Some((head_entity, head)) = heads.iter_mut().next() {
         let segment_positions = segments
             .iter()
@@ -162,22 +165,22 @@ fn snake_movement(
         let mut head_pos = positions.get_mut(head_entity).unwrap();
         match &head.direction {
             Direction::Left => {
-                head_pos.x -= 1;
+                head_pos.x -= SNAKE_SPEED;
             }
             Direction::Right => {
-                head_pos.x += 1;
+                head_pos.x += SNAKE_SPEED;
             }
             Direction::Up => {
-                head_pos.y += 1;
+                head_pos.y += SNAKE_SPEED;
             }
             Direction::Down => {
-                head_pos.y -= 1;
+                head_pos.y -= SNAKE_SPEED;
             }
         };
-        if head_pos.x < 0
-            || head_pos.y < 0
-            || head_pos.x as u32 >= ARENA_WIDTH
-            || head_pos.y as u32 >= ARENA_HEIGHT
+        if head_pos.x < 1
+            || head_pos.y < 1
+            || head_pos.x as u32 >= ARENA_WIDTH - 1
+            || head_pos.y as u32 >= ARENA_HEIGHT - 1
         {
             game_over_writer.send(GameOverEvent);
         }
@@ -230,6 +233,7 @@ fn game_over(
                 text.sections[0].value = format!("Score: {}", 0);
                 info!("Game Over! Score: {}", 0);
             }
+
         }
         spawn_snake(commands, segments_res);
     }
@@ -316,7 +320,6 @@ fn food_spawner(
     if food.iter().next().is_some() {
         return;
     }
-
     commands
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
@@ -327,8 +330,8 @@ fn food_spawner(
         })
         .insert(Food)
         .insert(Position {
-            x: (random::<f32>() * ARENA_WIDTH as f32) as i32,
-            y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
+            x: (random::<f32>() * ARENA_WIDTH as f32) as u32,
+            y: (random::<f32>() * ARENA_HEIGHT as f32) as u32,
         })
         .insert(Size::square(0.8));
     writer.send(FoodSpawnEvent);
