@@ -346,8 +346,8 @@ fn food_spawner(
         })
         .insert(Food)
         .insert(Position {
-            x: (random::<f32>() * ARENA_WIDTH as f32) as u32,
-            y: (random::<f32>() * ARENA_HEIGHT as f32) as u32,
+            x: (random::<f32>() * (ARENA_WIDTH - ARENA_BORDER) as f32) as u32,
+            y: (random::<f32>() * (ARENA_HEIGHT - ARENA_BORDER)  as f32) as u32,
         })
         .insert(Size::square(0.8));
     writer.send(FoodSpawnEvent);
