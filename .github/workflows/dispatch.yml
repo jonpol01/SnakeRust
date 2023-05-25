@@ -1,4 +1,4 @@
-name: Rust
+name: Dispatch Rust workflow
 
 on:
   workflow_dispatch:
